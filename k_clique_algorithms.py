@@ -28,11 +28,42 @@ def la_matching_counting_triangles(adj_matrix, nodes):
 
     return [list(t) for t in triangles]
 
+def remove_low_degree_vertices(adj_matrix, nodes, k):
+    """Алгоритм 5: удаляет вершины степени < k - 1."""
+    degrees = np.sum(adj_matrix, axis=1)
+    valid_indices = [i for i, deg in enumerate(degrees) if deg >= k - 1]
+    if not valid_indices:
+        return np.zeros((0, 0), dtype=int), []
+    reduced_adj_matrix = adj_matrix[np.ix_(valid_indices, valid_indices)]
+    reduced_nodes = [nodes[i] for i in valid_indices]
+    return reduced_adj_matrix, reduced_nodes
+
+def remove_weak_edges(adj_matrix, k):
+    """Алгоритм 6: удаляет рёбра, у которых |N(u) ∩ N(v)| < k - 2."""
+    n = adj_matrix.shape[0]
+    A_square = adj_matrix @ adj_matrix
+    mask = A_square >= (k - 2)
+    np.fill_diagonal(mask, 0)
+    filtered_adj_matrix = adj_matrix * mask
+    filtered_adj_matrix[filtered_adj_matrix > 1] = 1
+    return filtered_adj_matrix
+
+def reduce_graph_by_degree_and_common_neighbors(adj_matrix, nodes, k):
+    """Итеративное применение Алгоритма 5 и 6, пока граф не стабилизируется."""
+    changed = True
+    while changed:
+        prev_shape = adj_matrix.shape
+        adj_matrix, nodes = remove_low_degree_vertices(adj_matrix, nodes, k)
+        if adj_matrix.shape[0] < k:
+            return np.zeros((0, 0), dtype=int), []
+        adj_matrix = remove_weak_edges(adj_matrix, k)
+        adj_matrix, nodes = remove_low_degree_vertices(adj_matrix, nodes, k)
+        changed = adj_matrix.shape != prev_shape
+    return adj_matrix, nodes
 
 def la_matching_counting_k_cliques(adj_matrix, k, nodes):
-    """Алгоритм 7: Линейно-алгебраический поиск k-клик."""
+    """Алгоритм 7: Линейно-алгебраический поиск k-клик + Алгоритмы 5+6."""
     start_time = time.time()
-
     n = adj_matrix.shape[0]
 
     if k == 1:
@@ -46,9 +77,8 @@ def la_matching_counting_k_cliques(adj_matrix, k, nodes):
         cliques = []
         for i in range(n):
             for j in range(n):
-                if adj_matrix[i, j] == 1:
-                    if i < j or i == j:
-                        cliques.append([nodes[i], nodes[j]])
+                if adj_matrix[i, j] == 1 and i <= j:
+                    cliques.append([nodes[i], nodes[j]])
         end_time = time.time()
         if sys.stdout == sys.__stdout__:
             print(f"Время выполнения поиска {k}-клик: {end_time - start_time:.6f} сек.")
@@ -57,13 +87,20 @@ def la_matching_counting_k_cliques(adj_matrix, k, nodes):
     if k == 3:
         cliques = la_matching_counting_triangles(adj_matrix, nodes)
         end_time = time.time()
-        if sys.stdout == sys.__stdout__ :
+        if sys.stdout == sys.__stdout__:
             print(f"Время выполнения поиска {k}-клик: {end_time - start_time:.6f} сек.")
         return cliques
 
-    oriented_adj_matrix = arbitrary_acyclic_orientation(adj_matrix, nodes)
+    # Алгоритмы 5 и 6
+    adj_matrix, nodes = reduce_graph_by_degree_and_common_neighbors(adj_matrix, nodes, k)
+    n = adj_matrix.shape[0]
+    if n < k:
+        end_time = time.time()
+        if sys.stdout == sys.__stdout__:
+            print(f"Время выполнения поиска {k}-клик: {end_time - start_time:.6f} сек.")
+        return []
 
-    k_cliques = set()
+    oriented_adj_matrix = arbitrary_acyclic_orientation(adj_matrix, nodes)
     node_map = {nodes[i]: i for i in range(n)}
 
     def find_k_cliques_recursive_alg7(current_adj_matrix, current_nodes_list, current_prefix_nodes, level, target_k):
@@ -76,14 +113,14 @@ def la_matching_counting_k_cliques(adj_matrix, k, nodes):
             for triangle_nodes in triangles_in_subgraph:
                 potential_k_clique_nodes = sorted(current_prefix_nodes + triangle_nodes)
                 if len(potential_k_clique_nodes) == target_k:
-                     is_full_clique = True
-                     for u_node, v_node in combinations(potential_k_clique_nodes, 2):
-                         u_idx_orig, v_idx_orig = node_map[u_node], node_map[v_node]
-                         if adj_matrix[u_idx_orig, v_idx_orig] == 0:
-                             is_full_clique = False
-                             break
-                     if is_full_clique:
-                         found_k_cliques.add(tuple(potential_k_clique_nodes))
+                    is_full_clique = True
+                    for u_node, v_node in combinations(potential_k_clique_nodes, 2):
+                        u_idx_orig, v_idx_orig = node_map[u_node], node_map[v_node]
+                        if adj_matrix[u_idx_orig, v_idx_orig] == 0:
+                            is_full_clique = False
+                            break
+                    if is_full_clique:
+                        found_k_cliques.add(tuple(potential_k_clique_nodes))
             return found_k_cliques
 
         found_k_cliques = set()
@@ -91,22 +128,21 @@ def la_matching_counting_k_cliques(adj_matrix, k, nodes):
 
         for v_node in current_nodes_list:
             v_idx_in_subgraph = node_map_current[v_node]
+            v_right_neighbors_indices = [i for i in range(current_n) if oriented_current_adj_matrix[v_idx_in_subgraph, i] == 1]
 
-            v_right_neighbors_in_subgraph_indices = [i for i in range(current_n) if oriented_current_adj_matrix[v_idx_in_subgraph, i] == 1]
+            if len(v_right_neighbors_indices) >= target_k - level - 1:
+                next_subgraph_indices = v_right_neighbors_indices
+                next_subgraph_adj_matrix = get_induced_subgraph_adj_matrix(current_adj_matrix, next_subgraph_indices)
+                next_subgraph_nodes_list = get_nodes_from_indices(current_nodes_list, next_subgraph_indices)
 
-            if len(v_right_neighbors_in_subgraph_indices) >= target_k - level - 1:
-                 next_subgraph_indices_in_subgraph = v_right_neighbors_in_subgraph_indices
-                 next_subgraph_adj_matrix = get_induced_subgraph_adj_matrix(current_adj_matrix, next_subgraph_indices_in_subgraph)
-                 next_subgraph_nodes_list = get_nodes_from_indices(current_nodes_list, next_subgraph_indices_in_subgraph)
-
-                 found_cliques_in_next_subgraph = find_k_cliques_recursive_alg7(
-                     next_subgraph_adj_matrix,
-                     next_subgraph_nodes_list,
-                     current_prefix_nodes + [v_node],
-                     level + 1,
-                     target_k
-                 )
-                 found_k_cliques.update(found_cliques_in_next_subgraph)
+                found_cliques = find_k_cliques_recursive_alg7(
+                    next_subgraph_adj_matrix,
+                    next_subgraph_nodes_list,
+                    current_prefix_nodes + [v_node],
+                    level + 1,
+                    target_k
+                )
+                found_k_cliques.update(found_cliques)
 
         return found_k_cliques
 
