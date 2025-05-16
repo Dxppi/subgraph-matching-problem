@@ -13,7 +13,7 @@
 
 ```bash
 pip install networkx numpy 
-
+```
 ## Структура файлов
 
 Программа состоит из трех файлов:
@@ -29,3 +29,4 @@ pip install networkx numpy
 
 ```bash
 python main_program.py
+```
