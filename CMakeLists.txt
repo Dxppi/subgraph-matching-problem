@@ -4,6 +4,7 @@ project(KCliqueCounter)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_library(GRAPHBLAS_LIB NAMES graphblas REQUIRED) 
 find_library(LAGRAPH_LIB lagraph REQUIRED)
 
 file(GLOB SRC_FILES src/*.cpp)
@@ -19,14 +20,13 @@ target_include_directories(KCliqueCounter PUBLIC
     /usr/local/include/suitesparse
 )
 
-# ---- OpenMP ----
 find_package(OpenMP REQUIRED)
 
-# ---- Link ----
 target_link_libraries(KCliqueCounter
     PUBLIC
         ${GRAPHBLAS_LIB}
         ${LAGRAPH_LIB}
-        ${LAGRAPHX_LIB}
         OpenMP::OpenMP_CXX
 )
+
+target_compile_options(KCliqueCounter PUBLIC ${OpenMP_CXX_FLAGS})

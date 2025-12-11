@@ -3,6 +3,9 @@
 #include <LAGraphX.h>
 #include <cstddef>
 #include <vector>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 struct Matrix {
   size_t n;
@@ -21,23 +24,41 @@ struct Matrix {
     return 0;
   }
 
-  Matrix multiply(const Matrix &other) const {
+  Matrix multiply(const Matrix &other, bool parallel = false) const {
     Matrix res(n);
-    for (size_t i = 0; i < n; ++i)
-      for (size_t k = 0; k < n; ++k) {
-        if (data[i][k] == 0)
-          continue;
-        for (size_t j = 0; j < n; ++j)
-          res.data[i][j] += data[i][k] * other.data[k][j];
-      }
+    if (parallel) {
+      #pragma omp parallel for
+      for (size_t i = 0; i < n; ++i)
+        for (size_t k = 0; k < n; ++k) {
+          if (data[i][k] == 0)
+            continue;
+          for (size_t j = 0; j < n; ++j)
+            res.data[i][j] += data[i][k] * other.data[k][j];
+        }
+    } else {
+      for (size_t i = 0; i < n; ++i)
+        for (size_t k = 0; k < n; ++k) {
+          if (data[i][k] == 0)
+            continue;
+          for (size_t j = 0; j < n; ++j)
+            res.data[i][j] += data[i][k] * other.data[k][j];
+        }
+    }
     return res;
   }
 
-  Matrix hadamard(const Matrix &other) const {
+  Matrix hadamard(const Matrix &other, bool parallel = false) const {
     Matrix res(n);
-    for (size_t i = 0; i < n; ++i)
-      for (size_t j = 0; j < n; ++j)
-        res.data[i][j] = data[i][j] * other.data[i][j];
+    if (parallel) {
+      #pragma omp parallel for collapse(2)
+      for (size_t i = 0; i < n; ++i)
+        for (size_t j = 0; j < n; ++j)
+          res.data[i][j] = data[i][j] * other.data[i][j];
+    } else {
+      for (size_t i = 0; i < n; ++i)
+        for (size_t j = 0; j < n; ++j)
+          res.data[i][j] = data[i][j] * other.data[i][j];
+    }
     return res;
   }
 
