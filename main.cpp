@@ -45,7 +45,6 @@ SparseMatrix loadEdgeListFile(const string &path) {
 
 #include <random>
 
-// Генерация неориентированного графа G(n,p) и сохранение в edge-list файл
 void generateErdosRenyiEdgeList(const std::string &outPath, int n, double p,
                                 uint32_t seed = 42) {
   std::mt19937 rng(seed);
