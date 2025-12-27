@@ -1,7 +1,15 @@
 # tests/CMakeLists.txt
 
+
+
 add_executable(testing_graphs
-    testgraph_gtest.cc
+    testGraphBlasMatrix.cc
+    ../graphBlas/blas_matrix.hpp
+    ../graphBlas/la_algorithms.hpp
+)
+
+target_include_directories(testing_graphs PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../graphBlas
 )
 
 target_link_libraries(testing_graphs PRIVATE
@@ -9,8 +17,11 @@ target_link_libraries(testing_graphs PRIVATE
     graphblas
 )
 
-include(GoogleTest)
+target_compile_definitions(testing_graphs
+    PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests"
+)
 
+include(GoogleTest)
 gtest_discover_tests(testing_graphs
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )

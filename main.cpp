@@ -1,4 +1,5 @@
 #include "la_algorithms.h"
+#include "la_algorithms.hpp"
 #include "sparse_matrix.h"
 #include <bits/stdc++.h>
 #ifdef _OPENMP

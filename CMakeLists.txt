@@ -45,29 +45,17 @@ endif()
 # ---------- Compiler flags ----------
 
 if (MSVC)
-    add_compile_options(/O2 /W4)
+  add_compile_options(/Od /Z7)
 else()
-    add_compile_options(-O3 -Wall -Wextra)
+  add_compile_options(-O0 -g)
 endif()
+
 
 # ---------- OpenMP (optional) ----------
 
 find_package(OpenMP)
 
 # ---------- Main executables ----------
-
-add_executable(la_file
-    main.cpp
-)
-target_include_directories(la_file PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/sparseMatrix"
-)
-target_link_libraries(la_file PRIVATE
-    graphblas
-)
-if (OpenMP_CXX_FOUND)
-    target_link_libraries(la_file PRIVATE OpenMP::OpenMP_CXX)
-endif()
 
 add_executable(la_examples
     sparseMatrix/examples.cpp
@@ -80,6 +68,20 @@ target_link_libraries(la_examples PRIVATE
 )
 if (OpenMP_CXX_FOUND)
     target_link_libraries(la_examples PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+add_executable(la_file
+    main.cpp
+)
+target_include_directories(la_file PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/sparseMatrix"
+    "${CMAKE_CURRENT_SOURCE_DIR}/graphBlas"
+)
+target_link_libraries(la_file PRIVATE
+    graphblas
+)
+if (OpenMP_CXX_FOUND)
+    target_link_libraries(la_file PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
 # ---------- Tests ----------
