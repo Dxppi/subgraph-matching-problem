@@ -70,8 +70,8 @@ int main(int argc, char **argv) {
 
   if (argc < 2) {
     cerr << "Usage:\n"
-         << "  " << argv[0] << " data/graph.txt [k]\n"
-         << "  " << argv[0] << " data/graph.txt exp\n"
+         << "  " << argv[0] << " ../data/graph.txt [k]\n"
+         << "  " << argv[0] << " ../data/graph.txt exp\n"
          << "  " << argv[0] << " gen n p out.txt\n";
     return 1;
   }

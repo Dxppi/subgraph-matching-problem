@@ -1,7 +1,6 @@
 #include "la_algorithms.h"
 #include "sparse_matrix.h"
 #include <bits/stdc++.h>
-
 using namespace std;
 
 // вспомогательная функция: печать неориентированного графа
@@ -42,8 +41,6 @@ void testCompleteGraphs() {
 
 int main() {
 
-
-  
   // Пример 1: треугольник K3
   {
     cout << "=== Example 1: triangle K3 ===\n";
