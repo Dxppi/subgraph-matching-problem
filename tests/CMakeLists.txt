@@ -1,15 +1,11 @@
-# tests/CMakeLists.txt
-
-
-
+# Основные тесты
 add_executable(testing_graphs
     testGraphBlasMatrix.cc
-    ../graphBlas/blas_matrix.hpp
-    ../graphBlas/la_algorithms.hpp
 )
 
 target_include_directories(testing_graphs PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../graphBlas
+    ${CMAKE_CURRENT_SOURCE_DIR}/../data
 )
 
 target_link_libraries(testing_graphs PRIVATE
@@ -25,3 +21,26 @@ include(GoogleTest)
 gtest_discover_tests(testing_graphs
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
+
+# Тест сравнения алгоритмов
+add_executable(algorithm_comparison
+    test_algorithm_comparison.cpp
+)
+
+target_include_directories(algorithm_comparison PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../graphBlas
+    ${CMAKE_CURRENT_SOURCE_DIR}/../sparseMatrix
+    ${CMAKE_CURRENT_SOURCE_DIR}/../data
+)
+
+target_link_libraries(algorithm_comparison PRIVATE
+    GTest::gtest_main
+    graphblas
+)
+
+target_compile_definitions(algorithm_comparison
+    PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/data"
+)
+
+include(GoogleTest)
+gtest_discover_tests(algorithm_comparison)

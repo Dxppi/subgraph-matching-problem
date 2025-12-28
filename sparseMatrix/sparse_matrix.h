@@ -2,9 +2,14 @@
 #define SPARSE_MATRIX_H
 
 #include <algorithm>
+#include <bits/stdc++.h>
+#include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include <unordered_map>
 #include <vector>
+
+using namespace std;
 
 class SparseMatrix {
 public:
@@ -51,7 +56,6 @@ public:
     return t;
   }
 
-  // обычное умножение матриц
   SparseMatrix multiply(const SparseMatrix &b) const {
     SparseMatrix c(n);
     for (int i = 0; i < n; ++i) {
@@ -69,7 +73,6 @@ public:
     return c;
   }
 
-  // поэлементное произведение (А ⊙ B)
   SparseMatrix hadamard(const SparseMatrix &b) const {
     SparseMatrix c(n);
     for (int i = 0; i < n; ++i) {
@@ -91,7 +94,7 @@ public:
         s += kv.second;
     return s;
   }
-  // степени вершин (для неориентированного графа)
+
   std::vector<int> degrees() const {
     std::vector<int> d(n, 0);
     for (int i = 0; i < n; ++i)
@@ -106,5 +109,46 @@ public:
     return c;
   }
 };
+
+// ===== ФУНКЦИЯ ДЛЯ ЧТЕНИЯ ФАЙЛА (не метод класса!) =====
+inline SparseMatrix loadEdgeListFile(const std::string &path) {
+  std::ifstream in(path);
+  if (!in) {
+    throw std::runtime_error("Cannot open file: " + path);
+  }
+
+  std::vector<std::pair<int, int>> edges;
+  edges.reserve(1'000'000);
+
+  int u, v;
+  int maxV = -1;
+  while (in >> u >> v) {
+    if (u == v)
+      continue;
+    edges.emplace_back(u, v);
+    maxV = std::max(maxV, std::max(u, v));
+  }
+
+  in.close();
+
+  if (maxV < 0) {
+    return SparseMatrix(0);
+  }
+
+  int n = maxV + 1;
+  SparseMatrix A(n);
+  for (auto &e : edges) {
+    int x = e.first;
+    int y = e.second;
+    A.set(x, y, 1);
+    A.set(y, x, 1);
+  }
+
+  std::cout << "Graph loaded from " << path << std::endl;
+  std::cout << "  Vertices: " << n << std::endl;
+  std::cout << "  Edges: " << edges.size() << std::endl;
+
+  return A;
+}
 
 #endif // SPARSE_MATRIX_H

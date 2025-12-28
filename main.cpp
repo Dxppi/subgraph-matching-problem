@@ -1,5 +1,5 @@
 #include "la_algorithms.h"
-#include "la_algorithms.hpp"
+#include "la_algorithms_blas.hpp"
 #include "sparse_matrix.h"
 #include <bits/stdc++.h>
 #ifdef _OPENMP
@@ -8,43 +8,9 @@
 
 using namespace std;
 
-// Чтение неориентированного графа из файла без заголовка:
-// каждая строка: u v (0-based)
-SparseMatrix loadEdgeListFile(const string &path) {
-  ifstream in(path);
-  if (!in) {
-    throw runtime_error("Cannot open file: " + path);
-  }
-
-  vector<pair<int, int>> edges;
-  edges.reserve(1'000'000);
-
-  int u, v;
-  int maxV = -1;
-  while (in >> u >> v) {
-    if (u == v)
-      continue;
-    edges.emplace_back(u, v);
-    maxV = max(maxV, max(u, v));
-  }
-
-  if (maxV < 0) {
-    return SparseMatrix(0);
-  }
-
-  int n = maxV + 1;
-  SparseMatrix A(n);
-  for (auto &e : edges) {
-    int x = e.first;
-    int y = e.second;
-    A.set(x, y, 1);
-    A.set(y, x, 1);
-  }
-
-  return A;
-}
-
 #include <random>
+
+SparseMatrix loadEdgeListFile(const string &path);
 
 void generateErdosRenyiEdgeList(const std::string &outPath, int n, double p,
                                 uint32_t seed = 42) {
