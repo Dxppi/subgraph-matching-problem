@@ -17,8 +17,10 @@ pair<SparseMatrix, vector<int>> filterByDegreeAlg5(const SparseMatrix &G,
     if (deg[i] >= k - 1)
       keepNodes.push_back(i);
   }
+
   if (keepNodes.empty())
     return {SparseMatrix(0), {}};
+
   return {G.inducedSubgraph(keepNodes), keepNodes};
 }
 

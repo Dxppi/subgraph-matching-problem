@@ -2,7 +2,7 @@
 #define SPARSE_MATRIX_H
 
 #include <algorithm>
-#include <bits/stdc++.h>
+#include <numeric>
 #include <omp.h>
 #include <unordered_map>
 #include <vector>
@@ -12,7 +12,6 @@ using namespace std;
 class SparseMatrix {
 public:
   using SparseRow = unordered_map<int, int>;
-
   int n;
   vector<SparseRow> a;
 
@@ -41,7 +40,7 @@ public:
     return res;
   }
 
-  // Умножение матриц
+  // ========== MATRIX MULTIPLICATION ==========
   SparseMatrix multiply(const SparseMatrix &b) const {
     SparseMatrix c(n);
 #pragma omp parallel for schedule(dynamic)
@@ -59,7 +58,7 @@ public:
     return c;
   }
 
-  // Поэлементное произведение (Hadamard product)
+  // ========== HADAMARD (element-wise) PRODUCT ==========
   SparseMatrix hadamard(const SparseMatrix &b) const {
     SparseMatrix c(n);
 #pragma omp parallel for schedule(dynamic)
@@ -74,7 +73,7 @@ public:
     return c;
   }
 
-  // Сумма всех элементов
+  // ========== SUM OF ALL ELEMENTS ==========
   long long sumAll() const {
     long long s = 0;
 #pragma omp parallel for reduction(+ : s) schedule(static)
@@ -84,7 +83,7 @@ public:
     return s;
   }
 
-  // Степени вершин
+  // ========== VERTEX DEGREES ==========
   vector<int> degrees() const {
     vector<int> d(n);
 #pragma omp parallel for schedule(static)
@@ -93,7 +92,7 @@ public:
     return d;
   }
 
-  // Количество ненулевых элементов
+  // ========== NUMBER OF NON-ZERO ELEMENTS ==========
   long long nnz() const {
     long long c = 0;
 #pragma omp parallel for reduction(+ : c) schedule(static)
@@ -102,7 +101,7 @@ public:
     return c;
   }
 
-  // Индуцированный подграф на подмножестве вершин
+  // ========== INDUCED SUBGRAPH ==========
   SparseMatrix inducedSubgraph(const vector<int> &subset) const {
     int k = (int)subset.size();
     SparseMatrix B(k);
@@ -123,26 +122,33 @@ public:
     return B;
   }
 
-  // Подсчёт треугольников: sum(A² ⊙ A) / 6
+  // ========== ALGORITHM 3: TRIANGLE COUNTING (Corrected) ==========
   long long countTriangles() const {
-    SparseMatrix A2 = multiply(*this);
-    SparseMatrix T = A2.hadamard(*this);
-    return T.sumAll() / 6;
+    // Step 1: Orient graph acyclically (i -> j if i < j)
+    SparseMatrix A_dir = orientById();
+
+    // Step 2: A* = (A_dir)^2 ⊙ A_dir
+    SparseMatrix A2 = A_dir.multiply(A_dir);
+    SparseMatrix T = A2.hadamard(A_dir);
+
+    // Step 3: Sum all elements = number of triangles
+    // NO division by 6 for directed graph!
+    return T.sumAll();
   }
 
-  // Подсчёт 4-клик через треугольники в окрестности каждой вершины
+  // ========== ALGORITHM 8/9: 4-CLIQUE COUNTING (Corrected) ==========
   long long count4Cliques() const {
-    SparseMatrix A_or = orientById(); // ориентируем
+    SparseMatrix A_or = orientById(); // Orient graph
     long long total = 0;
 
 #pragma omp parallel for reduction(+ : total) schedule(dynamic)
     for (int v = 0; v < n; ++v) {
-      for (auto [u, _] : A_or.a[v]) { // для каждого ребра v→u
-        // mask_e = A[v][:] ⊙ (A[u][:])^T
+      for (auto [u, _] : A_or.a[v]) { // for each outgoing edge v->u
+        // Find common right neighbors of v and u
         const auto &Av = A_or.a[v];
         const auto &Au = A_or.a[u];
-
         vector<int> common;
+
         if (Av.size() < Au.size()) {
           for (auto &p : Av) {
             if (Au.count(p.first))
@@ -156,18 +162,17 @@ public:
         }
 
         if (common.size() >= 2) {
-          // A_e = A[mask_e][mask_e]
+          // Create induced subgraph on common neighbors
           SparseMatrix H = A_or.inducedSubgraph(common);
-
-          // Count += SUM(A_e)  ← просто сумма элементов!
-          total += H.nnz(); // вместо countTriangles()!
+          // CORRECTED: Count edges (triangles) in directed subgraph H
+          total += H.sumAll(); // NOT H.nnz()!
         }
       }
     }
     return total;
   }
 
-  // Algorithm 5: удалить вершины со степенью < minDegree
+  // ========== ALGORITHM 5: FILTER VERTICES BY DEGREE ==========
   pair<SparseMatrix, vector<int>> filterByDegree(int minDegree) const {
     auto deg = degrees();
     vector<int> keepNodes;
@@ -180,38 +185,38 @@ public:
     return {inducedSubgraph(keepNodes), keepNodes};
   }
 
-  // Algorithm 6: удалить рёбра где |N(u) ∩ N(v)| < minCommon
+  // ========== ALGORITHM 6: FILTER EDGES BY COMMON NEIGHBORS (LA-based)
+  // ==========
   pair<SparseMatrix, bool> filterEdgesByCommonNeighbors(int minCommon) const {
-    SparseMatrix R(n);
-    bool changed = false;
     if (minCommon <= 0)
       return {*this, false};
 
+    // Compute A' = A^2 ⊙ A (common neighbor counts)
+    SparseMatrix A2 = multiply(*this);
+    SparseMatrix A_prime = A2.hadamard(*this);
+
+    // Filter edges with at least minCommon common neighbors
+    SparseMatrix R(n);
+    bool changed = false;
+
 #pragma omp parallel for schedule(dynamic) reduction(| : changed)
-    for (int u = 0; u < n; ++u) {
-      vector<int> Nu = rowIndices(u);
-      for (int v : Nu) {
-        if (u >= v)
-          continue;
-        vector<int> Nv = rowIndices(v);
-        vector<int> inter;
-        set_intersection(Nu.begin(), Nu.end(), Nv.begin(), Nv.end(),
-                         back_inserter(inter));
-        if ((int)inter.size() >= minCommon) {
+    for (int i = 0; i < n; ++i) {
+      for (auto &kv : A_prime.a[i]) {
+        int j = kv.first;
+        int common_count = kv.second;
+        if (common_count >= minCommon) {
 #pragma omp critical
-          {
-            R.set(u, v, 1);
-            R.set(v, u, 1);
-          }
+          { R.set(i, j, 1); }
         } else {
           changed = true;
         }
       }
     }
+
     return {R, changed};
   }
 
-  // Итеративная фильтрация рёбер с компактизацией
+  // ========== ITERATIVE EDGE FILTERING ==========
   SparseMatrix iterativeEdgeFiltering(int minCommon) const {
     SparseMatrix G = *this;
     while (true) {
@@ -221,32 +226,36 @@ public:
         break;
       }
       G = Gnext;
+
+      // Compact: remove isolated vertices
+      auto deg = G.degrees();
+      vector<int> nonZero;
+      for (int i = 0; i < G.size(); ++i) {
+        if (deg[i] > 0)
+          nonZero.push_back(i);
+      }
+      G = G.inducedSubgraph(nonZero);
     }
-    auto deg = G.degrees();
-    vector<int> nonZero;
-    for (int i = 0; i < G.size(); ++i) {
-      if (deg[i] > 0)
-        nonZero.push_back(i);
-    }
-    return G.inducedSubgraph(nonZero);
+    return G;
   }
 
-  // Ориентация графа в DAG: i -> j если i < j
+  // ========== ACYCLIC ORIENTATION BY ID ==========
   SparseMatrix orientById() const {
     SparseMatrix Or(n);
-#pragma omp parallel for schedule(dynamic)
+
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < n; ++i) {
       for (auto &kv : a[i]) {
-        if (i < kv.first) {
-#pragma omp critical
-          Or.set(i, kv.first, 1);
+        int j = kv.first;
+        if (i < j) {
+          Or.a[i][j] = 1;
         }
       }
     }
     return Or;
   }
 
-  // Извлечение всех рёбер как вектор пар
+  // ========== GET ALL EDGES ==========
   vector<pair<int, int>> getAllEdges() const {
     vector<pair<int, int>> edges;
     edges.reserve(nnz());
