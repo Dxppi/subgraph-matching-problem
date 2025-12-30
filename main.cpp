@@ -1,5 +1,5 @@
+#include "graph_loader.hpp"
 #include "la_algorithms.h"
-#include "la_algorithms_blas.hpp"
 #include "sparse_matrix.h"
 #include <bits/stdc++.h>
 #ifdef _OPENMP
@@ -9,8 +9,6 @@
 using namespace std;
 
 #include <random>
-
-SparseMatrix loadEdgeListFile(const string &path);
 
 void generateErdosRenyiEdgeList(const std::string &outPath, int n, double p,
                                 uint32_t seed = 42) {
@@ -22,7 +20,6 @@ void generateErdosRenyiEdgeList(const std::string &outPath, int n, double p,
     throw std::runtime_error("Cannot open output file: " + outPath);
   }
 
-  // Перебираем пары (u,v), u < v
   for (int u = 0; u < n; ++u) {
     for (int v = u + 1; v < n; ++v) {
       if (bern(rng)) {
@@ -31,6 +28,7 @@ void generateErdosRenyiEdgeList(const std::string &outPath, int n, double p,
     }
   }
 }
+
 int main(int argc, char **argv) {
   ios::sync_with_stdio(false);
   cin.tie(nullptr);
@@ -43,7 +41,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // -------- Режим генерации случайного графа --------
   if (std::string(argv[1]) == "gen") {
     if (argc < 5) {
       cerr << "Usage: " << argv[0] << " gen n p out.txt\n";
@@ -66,7 +63,7 @@ int main(int argc, char **argv) {
   string path = argv[1];
 
   try {
-    SparseMatrix G = loadEdgeListFile(path);
+    SparseMatrix G = GraphLoader::loadEdgeListFile(path);
     int n = G.size();
     long long m = G.nnz() / 2;
 
@@ -78,31 +75,19 @@ int main(int argc, char **argv) {
       return 0;
     }
 
-    // -------- Обычный режим: ./prog graph.txt [k] --------
     if (argc == 2 || (argc >= 3 && string(argv[2]) != "exp")) {
       int k = 4;
       if (argc >= 3) {
         k = stoi(argv[2]);
       }
 
-      // Треугольники
       auto t0 = chrono::high_resolution_clock::now();
-      long long tri = LA::countTriangles(G);
+      long long tri = G.countTriangles();
       auto t1 = chrono::high_resolution_clock::now();
       auto ms_tri =
           chrono::duration_cast<chrono::milliseconds>(t1 - t0).count();
 
       cout << "Triangles (k=3) = " << tri << "  time = " << ms_tri << " ms\n";
-
-      // 4-клики (Alg.8)
-      t0 = chrono::high_resolution_clock::now();
-      long long c4 = LA::count4Cliques(G);
-      t1 = chrono::high_resolution_clock::now();
-      auto ms_c4 = chrono::duration_cast<chrono::milliseconds>(t1 - t0).count();
-
-      cout << "4-cliques (Alg.8) = " << c4 << "  time = " << ms_c4 << " ms\n";
-
-      // k-клики через Algorithm 7 (with stages)
       if (k >= 3) {
         t0 = chrono::high_resolution_clock::now();
         long long ck = LA::countKCliquesWithStages(G, k);
@@ -117,15 +102,11 @@ int main(int argc, char **argv) {
       return 0;
     }
 
-    // -------- Режим экспериментов: ./prog graph.txt exp --------
-    // Здесь делаем серию запусков по k и числу потоков
     vector<int> ks = {3, 4, 5, 6};
-    vector<int> threads = {1, 2, 4, 8, 16, 24};
+    vector<int> threads = {24};
 
-    // короткое имя графа для вывода
     string gname = path;
     {
-      // отрежем директорию
       size_t pos = gname.find_last_of("/\\");
       if (pos != string::npos)
         gname = gname.substr(pos + 1);
@@ -135,7 +116,6 @@ int main(int argc, char **argv) {
     cout << "graph=" << gname << "\n";
     cout << "n=" << n << " m≈" << m << "\n\n";
 
-    // Заголовок в CSV-стиле
     cout << "graph;k;threads;time_ms;cliques\n";
 
     for (int k : ks) {

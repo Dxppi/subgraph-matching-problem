@@ -57,31 +57,18 @@ find_package(OpenMP)
 
 # ---------- Main executables ----------
 
-add_executable(la_examples
-    sparseMatrix/examples.cpp
-)
-target_include_directories(la_examples PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/sparseMatrix"
-)
-target_link_libraries(la_examples PRIVATE
-    graphblas
-)
-if (OpenMP_CXX_FOUND)
-    target_link_libraries(la_examples PRIVATE OpenMP::OpenMP_CXX)
-endif()
-
-add_executable(la_file
+add_executable(main
     main.cpp
 )
-target_include_directories(la_file PRIVATE
+target_include_directories(main PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/sparseMatrix"
     "${CMAKE_CURRENT_SOURCE_DIR}/graphBlas"
 )
-target_link_libraries(la_file PRIVATE
+target_link_libraries(main PRIVATE
     graphblas
 )
 if (OpenMP_CXX_FOUND)
-    target_link_libraries(la_file PRIVATE OpenMP::OpenMP_CXX)
+    target_link_libraries(main PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
 # ---------- Tests ----------
